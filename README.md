@@ -3,7 +3,8 @@
 **Twoje okno na krakowską komunikację miejską na żywo**  
 Tramwaje, autobusy i alerty ZTP Kraków w jednym przyjemnym interfejsie.
 
-[Krakowski Transport Publiczny Live](/cptv.png)
+[Krakowski Transport Publiczny Live]<img width="1616" height="1245" alt="cptv" src="https://github.com/user-attachments/assets/f2328323-5090-4abe-80ac-fbc390f4b508" />
+
 
 ---
 
