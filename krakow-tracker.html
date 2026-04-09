@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cracow Public Transport Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;--bg4:#252525;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0ede6;--text2:#8a877e;--text3:#55534e;
+  --accent:#e8ff3a;--tram:#ff6b35;--bus:#4da6ff;
+  --ok:#4caf76;--warn:#f0b429;--bad:#e85d42;
+  --r:10px;--rlg:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:200;}
+.logo{font-size:17px;font-weight:800;letter-spacing:-0.5px;white-space:nowrap;}
+.logo span{color:var(--accent);}
+.sbox{position:relative;flex:1;max-width:300px;}
+.sbox input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:7px 30px 7px 12px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+.sbox input::placeholder{color:var(--text3);}
+.sbox input:focus{border-color:var(--accent);}
+.sicon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:12px;}
+.filters{display:flex;gap:5px;}
+.fbtn{padding:5px 11px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.fbtn:hover{background:var(--bg3);color:var(--text);}
+.fbtn.fa{background:var(--accent);border-color:var(--accent);color:#0f0f0f;}
+.fbtn.ft{background:var(--tram);border-color:var(--tram);color:#fff;}
+.fbtn.fb{background:var(--bus);border-color:var(--bus);color:#fff;}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+.dt{background:var(--tram);}.db{background:var(--bus);}
+.rbtn{margin-left:auto;padding:6px 11px;border-radius:var(--r);border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.rbtn:hover{border-color:var(--accent);color:var(--accent);}
+.rbtn.spin .si{animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.si{display:inline-block;}
+.ts-lbl{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap;}
+
+/* ── LAYOUT ── */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:300px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.stab{flex:1;padding:10px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.stab.on{color:var(--accent);border-bottom-color:var(--accent);}
+.spanel{flex:1;overflow-y:auto;padding:10px;display:none;}
+.spanel.on{display:block;}
+
+/* ── VEHICLE CARDS ── */
+.vc{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:9px;}
+.vc:hover{border-color:var(--border2);background:var(--bg4);}
+.vc.sel{border-color:var(--accent);background:rgba(232,255,58,0.05);}
+.rbadge{min-width:38px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;letter-spacing:-0.3px;}
+.rbadge.tram{background:rgba(255,107,53,.18);color:var(--tram);}
+.rbadge.bus{background:rgba(77,166,255,.18);color:var(--bus);}
+.vi{flex:1;min-width:0;}
+.vh{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vm{display:flex;gap:6px;margin-top:2px;align-items:center;flex-wrap:wrap;}
+.vm span{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+.dp{font-size:10px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:999px;font-weight:500;}
+.dok{background:rgba(76,175,118,.15);color:var(--ok);}
+.dwn{background:rgba(240,180,41,.15);color:var(--warn);}
+.dbd{background:rgba(232,93,66,.15);color:var(--bad);}
+
+/* ── ALERTS ── */
+.alcard{background:var(--bg3);border:1px solid rgba(240,180,41,.2);border-left:3px solid var(--warn);border-radius:var(--r);padding:10px 12px;margin-bottom:7px;}
+.alroute{font-size:10px;font-weight:700;color:var(--warn);font-family:'DM Mono',monospace;margin-bottom:3px;}
+.altext{font-size:12px;color:var(--text2);line-height:1.5;}
+
+/* ── SCHEDULE ── */
+.srow{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--bg3);border-radius:var(--r);margin-bottom:5px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s;}
+.srow:hover{border-color:var(--border2);}
+.srow.sel{border-color:var(--accent);}
+.stime{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--accent);min-width:42px;}
+.sroute-badge{min-width:32px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.sroute-badge.tram{background:rgba(255,107,53,.18);color:var(--tram);}
+.sroute-badge.bus{background:rgba(77,166,255,.18);color:var(--bus);}
+.sdest{font-size:12px;color:var(--text2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sloc{font-size:11px;color:var(--text3);background:var(--bg4);border:1px solid var(--border2);border-radius:5px;padding:2px 7px;white-space:nowrap;flex-shrink:0;font-family:'DM Mono',monospace;}
+.sloc:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── MAP ── */
+#map{flex:1;position:relative;}
+.leaflet-container{background:#181818;}
+.leaflet-tile-pane{filter:brightness(.82) invert(1) hue-rotate(180deg) saturate(.9) brightness(.88);}
+
+/* ── VEHICLE DETAIL PANEL ── */
+.vdetail{position:absolute;bottom:16px;right:16px;width:260px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rlg);padding:14px;z-index:1000;display:none;box-shadow:0 4px 24px rgba(0,0,0,.6);}
+.vdetail.on{display:block;}
+.dh{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+.dba{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0;letter-spacing:-0.5px;}
+.dba.tram{background:rgba(255,107,53,.22);color:var(--tram);}
+.dba.bus{background:rgba(77,166,255,.22);color:var(--bus);}
+.drow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.drow:last-child{border-bottom:none;}
+.dlbl{color:var(--text3);}
+.dval{font-family:'DM Mono',monospace;font-weight:500;text-align:right;}
+.xbtn{position:absolute;top:10px;right:10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);font-size:10px;}
+.xbtn:hover{color:var(--text);}
+
+/* ── STATUS BAR ── */
+.statusbar{display:flex;align-items:center;gap:10px;padding:5px 16px;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;}
+.sdot{width:7px;height:7px;border-radius:50%;}
+.sdot.live{background:var(--ok);animation:pulse 2s ease-in-out infinite;}
+.sdot.err{background:var(--bad);}
+.sdot.demo{background:var(--warn);}
+.sdot.load{background:var(--text3);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.stxt{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+.scounts{margin-left:auto;display:flex;gap:12px;}
+.sci{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+.sci b{color:var(--text2);}
+
+/* ── DEBUG LOG ── */
+.logbox{background:var(--bg3);border-radius:var(--r);padding:9px 11px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);height:220px;overflow-y:auto;border:1px solid var(--border);line-height:1.7;}
+.lok{color:var(--ok);}.lwn{color:var(--warn);}.lerr{color:var(--bad);}
+
+/* ── PROXY STATUS BANNER ── */
+.proxy-banner{background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--warn);font-family:'DM Mono',monospace;line-height:1.6;}
+.proxy-banner.ok{background:rgba(76,175,118,.08);border-color:rgba(76,175,118,.2);color:var(--ok);}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:32px 16px;color:var(--text3);font-size:12px;}
+.empty .big{font-size:28px;margin-bottom:8px;}
+
+/* ── MAP MARKERS ── */
+.mkr{
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;font-weight:700;font-family:'Syne',sans-serif;
+  border:2px solid rgba(255,255,255,.3);
+  cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.55);
+  transition:transform .1s;
+  line-height:1;
+  white-space:nowrap;
+  padding:0 4px;
+}
+.mkr:hover{transform:scale(1.15);}
+.mkr.tram{background:var(--tram);color:#fff;}
+.mkr.bus{background:var(--bus);color:#fff;}
+.mkr.sel{box-shadow:0 0 0 3px var(--accent),0 2px 8px rgba(0,0,0,.55);}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Krakowski<span>&nbsp;CPTV</span></div>
+  <div class="sbox">
+    <input type="text" id="searchInput" placeholder="Szukaj linii lub kierunku…" oninput="onSearch()">
+    <span class="sicon">⌕</span>
+  </div>
+  <div class="sbox" style="position:relative;">
+    <input type="text" id="stopInput" placeholder="Szukaj przystanku…" oninput="onStopSearch()" autocomplete="off">
+    <span class="sicon">⛉</span>
+    
+  </div>
+  <div class="filters">
+    <button class="fbtn fa" id="fa" onclick="setFilter('all')">Wszystkie</button>
+    <button class="fbtn" id="ft" onclick="setFilter('tram')"><span class="dot dt"></span>Tramwaje</button>
+    <button class="fbtn" id="fb" onclick="setFilter('bus')"><span class="dot db"></span>Autobusy</button>
+  </div>
+  <button class="rbtn" id="rbtn" onclick="loadAll()"><span class="si">↻</span> Odśwież</button>
+  <span class="ts-lbl" id="tsLbl">—</span>
+</header>
+<div id="stopDropdown" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);z-index:9999;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.5);min-width:200px;"></div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="stabs">
+      <div class="stab on" id="tab-v" onclick="switchTab('v')">Pojazdy</div>
+      <div class="stab" id="tab-a" onclick="switchTab('a')">Alerty</div>
+      <div class="stab" id="tab-s" onclick="switchTab('s')">Rozkład</div>
+      <div class="stab" id="tab-p" onclick="switchTab('p')">Przystanek</div>
+      <div class="stab" id="tab-d" onclick="switchTab('d')">Debug</div>
+    </div>
+
+    <div class="spanel on" id="panel-v">
+      <div id="vlist"><div class="empty"><div class="big">⏳</div>Ładowanie…</div></div>
+    </div>
+
+    <div class="spanel" id="panel-a">
+      <div id="alist"><div class="empty"><div class="big">📡</div>Ładowanie…</div></div>
+    </div>
+
+    <div class="spanel" id="panel-s">
+      <input type="text" id="schedSearch" placeholder="Filtruj po linii lub kierunku…"
+        oninput="renderSchedule()"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:7px 12px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;outline:none;margin-bottom:8px;">
+      <div id="slist"><div class="empty"><div class="big">🗓</div>Ładowanie…</div></div>
+    </div>
+
+    <div class="spanel" id="panel-p">
+      <div id="stopHeader" style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">Wyszukaj przystanek powyżej</div>
+      <div id="stopDepartures"><div class="empty"><div class="big">🚏</div>Wybierz przystanek</div></div>
+    </div>
+
+    <div class="spanel" id="panel-d">
+      <div id="proxybanner" class="proxy-banner">Sprawdzam połączenie z proxy…</div>
+      <p style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:5px;">Dziennik:</p>
+      <div class="logbox" id="logbox"></div>
+    </div>
+  </div>
+
+  <div id="map">
+    <div class="vdetail" id="vdetail">
+      <div class="xbtn" onclick="closeDetail()">✕</div>
+      <div class="dh">
+        <div class="dba" id="dba">—</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;" id="dtitle">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px;" id="dsub">—</div>
+        </div>
+      </div>
+      <div class="drow"><span class="dlbl">Opóźnienie</span><span class="dval" id="ddelay">—</span></div>
+      <div class="drow"><span class="dlbl">Prędkość</span><span class="dval" id="dspeed">—</span></div>
+      <div class="drow"><span class="dlbl">Pozycja GPS</span><span class="dval" id="dpos">—</span></div>
+      <div class="drow"><span class="dlbl">ID pojazdu</span><span class="dval" id="did">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="sdot load" id="sdot"></div>
+  <span class="stxt" id="stxt">Łączenie…</span>
+  <div class="scounts">
+    <span class="sci">Tramwaje: <b id="ct">0</b></span>
+    <span class="sci">Autobusy: <b id="cb">0</b></span>
+    <span class="sci">Alerty: <b id="ca">0</b></span>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════
+// Gdy uruchomione przez proxy.js → http://localhost:3000
+// Gdy otwarte bezpośrednio jako plik → tryb demo
+const IS_SERVED = location.protocol !== 'file:' && location.hostname !== '';
+const API_BASE  = IS_SERVED ? '/gtfs/' : null;
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let map, markersLayer;
+let vehicles    = [];   // [{routeId, headsign, type, lat, lng, speed, delay, vehicleId, vehicleLabel, tripId}]
+let alerts      = [];   // [{header, desc, routes, type}]
+let tripUpdates = {};   // tripId → {delay}
+let activeFilter = 'all';
+let selId        = null; // selected vehicleId
+let leafletMarkers = {}; // vehicleId → L.Marker
+
+// ════════════════════════════════════════════
+// LOGGING
+// ════════════════════════════════════════════
+function log(msg, cls='') {
+  const el = document.getElementById('logbox');
+  if (!el) return;
+  const d = document.createElement('div');
+  if (cls) d.className = 'l' + cls;
+  d.textContent = `[${new Date().toLocaleTimeString('pl-PL')}] ${msg}`;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 120) el.removeChild(el.children[0]);
+}
+
+// ════════════════════════════════════════════
+// LOAD ALL DATA  (jeden request → /feed → JSON)
+// ════════════════════════════════════════════
+async function loadAll() {
+  setStatus('load', 'Pobieranie danych…');
+  document.getElementById('rbtn').classList.add('spin');
+
+  vehicles = []; alerts = []; tripUpdates = {};
+
+  if (!API_BASE) {
+    log('Plik otwarty jako file://. Uruchom: py proxy.py', 'lwn');
+    updateBanner(false);
+    loadDemo();
+    renderAll();
+    return;
+  }
+
+  try {
+    log('Pobieranie /feed…');
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const r     = await fetch('/feed', { signal: ctrl.signal });
+    clearTimeout(timer);
+
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+
+    vehicles = data.vehicles || [];
+    alerts   = data.alerts   || [];
+
+    if (data.errors && data.errors.length) {
+      for (const e of data.errors) log('WARN: ' + e, 'lwn');
+    }
+
+    log(`Załadowano: ${vehicles.length} pojazdów, ${alerts.length} alertów`, 'ok');
+
+    if (vehicles.length > 0) {
+      updateBanner(true);
+      setStatus('live', `${vehicles.length} pojazdów • ZTP Kraków`);
+    } else {
+      log('Brak pojazdów z API — ładuję demo', 'lwn');
+      loadDemo();
+      updateBanner(false);
+    }
+  } catch(e) {
+    log('Błąd /feed: ' + e.message, 'lerr');
+    loadDemo();
+    updateBanner(false);
+  }
+
+  renderAll();
+}
+
+function renderAll() {
+  renderMap();
+  renderList();
+  renderAlerts();
+  renderSchedule();
+  updateCounts();
+  document.getElementById('tsLbl').textContent = new Date().toLocaleTimeString('pl-PL');
+  document.getElementById('rbtn').classList.remove('spin');
+}
+
+async function loadBackground() {} // nieużywane
+
+function updateBanner(isLive) {
+  const el = document.getElementById('proxybanner');
+  if (isLive) {
+    el.className = 'proxy-banner ok';
+    el.textContent = '✓ Połączono z ZTP Kraków — dane na żywo';
+  } else if (!API_BASE) {
+    el.className = 'proxy-banner';
+    el.innerHTML = 'Plik otwarty jako file://\nUruchom: <b>node proxy.js</b>\nPotem otwórz: http://localhost:3000';
+    el.style.whiteSpace = 'pre';
+  } else {
+    el.className = 'proxy-banner';
+    el.textContent = 'Proxy działa ale ZTP nie odpowiada — tryb DEMO';
+  }
+}
+
+// ════════════════════════════════════════════
+// DEMO DATA
+// ════════════════════════════════════════════
+function loadDemo() {
+  const raw = [
+    {routeId:'8',  h:'Bronowice Małe',         t:'tram',lat:50.0614,lng:19.9366,delay:-30, spd:7.8},
+    {routeId:'22', h:'Kurdwanów P+R',           t:'tram',lat:50.0554,lng:19.9420,delay:120, spd:5.8},
+    {routeId:'1',  h:'Wzgórza Krzesławickie',   t:'tram',lat:50.0682,lng:19.9288,delay:60,  spd:5.0},
+    {routeId:'18', h:'Bieńczyce os.',            t:'tram',lat:50.0732,lng:19.9554,delay:0,   spd:6.7},
+    {routeId:'3',  h:'Salwator',                 t:'tram',lat:50.0618,lng:19.9148,delay:30,  spd:6.1},
+    {routeId:'52', h:'Nowe Bieżanów',            t:'tram',lat:50.0512,lng:19.9782,delay:0,   spd:5.6},
+    {routeId:'50', h:'Krowodrza Górka',          t:'tram',lat:50.0770,lng:19.9260,delay:90,  spd:4.8},
+    {routeId:'14', h:'Mały Płaszów P+R',        t:'tram',lat:50.0430,lng:20.0060,delay:0,   spd:6.2},
+    {routeId:'173',h:'Nowy Bieżanów P+R',       t:'bus', lat:50.0478,lng:19.9604,delay:240, spd:9.7},
+    {routeId:'179',h:'Kopiec Kościuszki',        t:'bus', lat:50.0552,lng:19.9098,delay:90,  spd:11.7},
+    {routeId:'194',h:'Os. Piastów',              t:'bus', lat:50.0802,lng:19.9702,delay:0,   spd:10.6},
+    {routeId:'501',h:'Port Lotniczy',            t:'bus', lat:50.0582,lng:19.8798,delay:-60, spd:13.9},
+    {routeId:'164',h:'Os. Na Skarpie',           t:'bus', lat:50.0752,lng:19.9852,delay:180, spd:9.2},
+    {routeId:'192',h:'Rondo Mogilskie',          t:'bus', lat:50.0668,lng:19.9432,delay:45,  spd:8.1},
+    {routeId:'208',h:'Nowa Huta Centrum',        t:'bus', lat:50.0710,lng:20.0340,delay:0,   spd:12.1},
+    {routeId:'152',h:'Kombinat',                 t:'bus', lat:50.0758,lng:20.0510,delay:300, spd:7.4},
+    {routeId:'304',h:'Wieliczka Rynek-Kopalnia', t:'bus', lat:49.9880,lng:20.0660,delay:60,  spd:14.2},
+  ];
+  vehicles = raw.map((v, i) => ({
+    routeId:      v.routeId,
+    headsign:     v.h,
+    type:         v.t,
+    lat:          v.lat + (Math.random() - 0.5) * 0.012,
+    lng:          v.lng + (Math.random() - 0.5) * 0.018,
+    delay:        v.delay,
+    speed:        v.spd,
+    vehicleId:    'DEMO-' + (100 + i),
+    vehicleLabel: String(100 + i),
+    tripId:       'demo-' + i,
+  }));
+  alerts = [
+    { routes:['8','18'], header:'Remont ul. Dietla',       desc:'Tramwaje linii 8 i 18 kursują objazdem przez Starowiślną. Wydłużenie ok. 7 min.', type:'tram' },
+    { routes:['173'],    header:'Zamknięcie ul. Wielickiej',desc:'Linia 173 z pominięciem przystanku Wielicka.',                                    type:'bus'  },
+  ];
+  setStatus('demo', `Demo: ${vehicles.length} pojazdów (uruchom proxy.js dla danych na żywo)`);
+}
+
+// ════════════════════════════════════════════
+// MAP
+// ════════════════════════════════════════════
+function initMap() {
+  markersLayer = L.layerGroup();
+  map = L.map('map', { zoomControl: false }).setView([50.0614, 19.9366], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 18
+  }).addTo(map);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  markersLayer.addTo(map);
+}
+
+function renderMap() {
+  markersLayer.clearLayers();
+  leafletMarkers = {};
+
+  const vv = getFiltered();
+  for (const v of vv) {
+    // Dynamic marker size based on route number length
+    const label   = v.routeId || '?';
+    const w       = Math.max(28, label.length * 9 + 12);
+    const h       = 26;
+    const isSel   = selId === v.vehicleId;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="mkr ${v.type}${isSel ? ' sel' : ''}" style="width:${w}px;height:${h}px;font-size:${label.length > 3 ? 10 : 12}px;">${label}</div>`,
+      iconSize:   [w, h],
+      iconAnchor: [w / 2, h / 2],
+    });
+
+    const marker = L.marker([v.lat, v.lng], { icon })
+      .addTo(markersLayer)
+      .on('click', () => selectVehicle(v));
+
+    leafletMarkers[v.vehicleId] = marker;
+  }
+}
+
+// ════════════════════════════════════════════
+// VEHICLE LIST
+// ════════════════════════════════════════════
+function renderList() {
+  const q  = (document.getElementById('searchInput').value || '').toLowerCase();
+  const vv = getFiltered()
+    .filter(v => !q
+      || (v.routeId  || '').toLowerCase().includes(q)
+      || (v.headsign || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.delay || 0) - (a.delay || 0));
+
+  const el = document.getElementById('vlist');
+  if (!vv.length) {
+    el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak wyników</div>';
+    return;
+  }
+
+  el.innerHTML = vv.map(v => {
+    const { ds, dc } = delayInfo(v.delay);
+    // Store vehicle data in a data attribute to avoid JSON-in-onclick issues
+    return `<div class="vc${selId === v.vehicleId ? ' sel' : ''}" data-vid="${esc(v.vehicleId)}" onclick="clickVehicle(this)">
+      <div class="rbadge ${v.type}">${esc(v.routeId || '?')}</div>
+      <div class="vi">
+        <div class="vh">${esc(v.headsign || 'Nieznany kierunek')}</div>
+        <div class="vm">
+          <span>${esc(v.vehicleLabel || v.vehicleId || '—')}</span>
+          <span>·</span>
+          <span>${v.speed != null ? Math.round(v.speed * 3.6) + ' km/h' : '—'}</span>
+          ${dc ? `<span class="dp ${dc}">${ds}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clickVehicle(el) {
+  const vid = el.dataset.vid;
+  const v   = vehicles.find(x => x.vehicleId === vid);
+  if (v) selectVehicle(v);
+}
+
+// ════════════════════════════════════════════
+// ALERTS
+// ════════════════════════════════════════════
+function renderAlerts() {
+  const el = document.getElementById('alist');
+  if (!alerts.length) {
+    el.innerHTML = '<div class="empty"><div class="big">✓</div>Brak aktywnych alertów</div>';
+    return;
+  }
+  el.innerHTML = alerts.map(a => `
+    <div class="alcard">
+      <div class="alroute">${a.routes?.length ? 'Linie: ' + a.routes.join(', ') : (a.type === 'tram' ? 'Tramwaje' : 'Autobusy')}</div>
+      <div class="altext"><b>${esc(a.header || '')}</b>${a.desc ? '<br>' + esc(a.desc) : ''}</div>
+    </div>`).join('');
+  document.getElementById('ca').textContent = alerts.length;
+}
+
+// ════════════════════════════════════════════
+// SCHEDULE
+// ════════════════════════════════════════════
+function renderSchedule() {
+  const q   = (document.getElementById('schedSearch').value || '').toLowerCase();
+  const now = new Date();
+  const el  = document.getElementById('slist');
+
+  const deps = getFiltered()
+    .filter(v => !q
+      || (v.routeId  || '').toLowerCase().includes(q)
+      || (v.headsign || '').toLowerCase().includes(q))
+    .slice(0, 30)
+    .map(v => {
+      const eta = new Date(now.getTime() + (Math.random() * 20 + 3) * 60000 + (v.delay || 0) * 1000);
+      return { time: eta, v };
+    })
+    .sort((a, b) => a.time - b.time);
+
+  if (!deps.length) {
+    el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak kursów</div>';
+    return;
+  }
+
+  el.innerHTML = deps.map(({ time, v }) => {
+    const ts = time.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    const { ds, dc } = delayInfo(v.delay);
+    return `<div class="srow${selId === v.vehicleId ? ' sel' : ''}" data-vid="${esc(v.vehicleId)}" onclick="clickScheduleRow(this)">
+      <span class="stime">${ts}</span>
+      <span class="sroute-badge ${v.type}">${esc(v.routeId || '?')}</span>
+      <span class="sdest">${esc(v.headsign || '—')}</span>
+      ${dc ? `<span class="dp ${dc}">${ds}</span>` : ''}
+      <span class="sloc" onclick="event.stopPropagation();locateVehicle('${esc(v.vehicleId)}')">⌖ mapuj</span>
+    </div>`;
+  }).join('');
+}
+
+function clickScheduleRow(el) {
+  const vid = el.dataset.vid;
+  const v   = vehicles.find(x => x.vehicleId === vid);
+  if (v) selectVehicle(v);
+}
+
+function locateVehicle(vid) {
+  const v = vehicles.find(x => x.vehicleId === vid);
+  if (!v) return;
+  map.setView([v.lat, v.lng], 16, { animate: true });
+  selectVehicle(v);
+  // Switch to map view if sidebar hides it on small screens — no-op on desktop
+}
+
+// ════════════════════════════════════════════
+// SELECT VEHICLE
+// ════════════════════════════════════════════
+function selectVehicle(v) {
+  selId = v.vehicleId;
+  map.setView([v.lat, v.lng], 15, { animate: true });
+
+  const { ds, dc } = delayInfo(v.delay);
+
+  document.getElementById('dba').className       = 'dba ' + v.type;
+  document.getElementById('dba').textContent     = v.routeId || '?';
+  document.getElementById('dtitle').textContent  = v.headsign || 'Nieznany kierunek';
+  document.getElementById('dsub').textContent    = v.type === 'tram' ? 'Tramwaj' : 'Autobus';
+  document.getElementById('ddelay').innerHTML    = dc ? `<span class="dp ${dc}">${ds}</span>` : (v.delay == null ? '—' : ds);
+  document.getElementById('dspeed').textContent  = v.speed != null ? Math.round(v.speed * 3.6) + ' km/h' : '—';
+  document.getElementById('dpos').textContent    = v.lat.toFixed(4) + ', ' + v.lng.toFixed(4);
+  document.getElementById('did').textContent     = v.vehicleLabel || v.vehicleId || '—';
+  document.getElementById('vdetail').classList.add('on');
+
+  // Re-render markers to update selection ring
+  renderMap();
+  // Re-render list/schedule to update highlight
+  renderList();
+  renderSchedule();
+}
+
+function closeDetail() {
+  selId = null;
+  document.getElementById('vdetail').classList.remove('on');
+  renderMap();
+  renderList();
+  renderSchedule();
+}
+
+// ════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════
+function getFiltered() {
+  return activeFilter === 'all' ? vehicles : vehicles.filter(v => v.type === activeFilter);
+}
+
+function delayInfo(delay) {
+  if (delay == null) return { ds: '', dc: '' };
+  const min = Math.round(delay / 60);
+  const ds  = delay > 0 ? '+' + min + ' min' : delay < 0 ? min + ' min' : 'OK';
+  const dc  = delay > 120 ? 'dbd' : delay > 30 ? 'dwn' : 'dok';
+  return { ds, dc };
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function onSearch() {
+  renderList();
+  renderSchedule();
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  document.getElementById('fa').className = 'fbtn' + (f === 'all'  ? ' fa' : '');
+  document.getElementById('ft').className = 'fbtn' + (f === 'tram' ? ' ft' : '');
+  document.getElementById('fb').className = 'fbtn' + (f === 'bus'  ? ' fb' : '');
+  renderMap(); renderList(); renderSchedule();
+}
+
+function switchTab(t) {
+  ['v','a','s','p','d'].forEach(x => {
+    document.getElementById('tab-'   + x).classList.toggle('on', x === t);
+    document.getElementById('panel-' + x).classList.toggle('on', x === t);
+  });
+}
+
+// ════════════════════════════════════════════
+// STOP SEARCH
+// ════════════════════════════════════════════
+let stopSearchTimer = null;
+
+function onStopSearch() {
+  const q = document.getElementById('stopInput').value.trim();
+  clearTimeout(stopSearchTimer);
+  if (q.length < 2) {
+    document.getElementById('stopDropdown').style.display = 'none';
+    return;
+  }
+  stopSearchTimer = setTimeout(() => fetchStops(q), 250);
+}
+
+async function fetchStops(q) {
+  try {
+    const r = await fetch(`/stops?q=${encodeURIComponent(q)}`);
+    const stops = await r.json();
+    renderStopDropdown(stops);
+  } catch(e) {
+    log('Błąd /stops: ' + e.message, 'lerr');
+  }
+}
+
+function renderStopDropdown(stops) {
+  const dd = document.getElementById('stopDropdown');
+  if (!stops.length) { dd.style.display = 'none'; return; }
+  // Pozycjonuj dropdown pod inputem
+  const inp = document.getElementById('stopInput');
+  const rect = inp.getBoundingClientRect();
+  dd.style.top    = (rect.bottom + 3) + 'px';
+  dd.style.left   = rect.left + 'px';
+  dd.style.width  = rect.width + 'px';
+  dd.innerHTML = stops.map(s => `
+    <div onclick="selectStop('${esc(s.stop_id)}','${esc(s.name)}')"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .1s;"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      ${esc(s.name)}
+    </div>`).join('');
+  dd.style.display = 'block';
+}
+
+async function selectStop(stopId, stopName) {
+  document.getElementById('stopInput').value = stopName;
+  document.getElementById('stopDropdown').style.display = 'none';
+  document.getElementById('stopHeader').textContent = stopName;
+  document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">⏳</div>Ładowanie rozkładu…</div>';
+  switchTab('p');
+  try {
+    const r    = await fetch(`/stop_times?stop_id=${encodeURIComponent(stopId)}`);
+    const data = await r.json();
+    renderStopDepartures(data.departures || []);
+  } catch(e) {
+    document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">✗</div>Błąd pobierania rozkładu</div>';
+    log('Błąd /stop_times: ' + e.message, 'lerr');
+  }
+}
+
+// Przelicz godzinę GTFS (może być >23, np. "25:30") na normalny zegar
+function gtfsTimeTo24(time) {
+  const parts = time.split(':');
+  const h = parseInt(parts[0], 10) % 24;
+  const m = parts[1] || '00';
+  return { h: String(h).padStart(2, '0'), m };
+}
+
+function renderStopDepartures(deps) {
+  const el = document.getElementById('stopDepartures');
+  if (!deps.length) {
+    el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak odjazdów dziś</div>';
+    return;
+  }
+  // Grupuj po godzinie (po przeliczeniu)
+  const byHour = {};
+  for (const d of deps) {
+    const { h } = gtfsTimeTo24(d.time);
+    if (!byHour[h]) byHour[h] = [];
+    byHour[h].push(d);
+  }
+  // Sortuj godziny: najpierw 4-23, potem 0-3 (nocne)
+  const hours = Object.keys(byHour).sort((a, b) => {
+    const na = +a < 4 ? +a + 24 : +a;
+    const nb = +b < 4 ? +b + 24 : +b;
+    return na - nb;
+  });
+  let html = '';
+  for (const h of hours) {
+    html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin:10px 0 4px;">${h}:xx</div>`;
+    html += byHour[h].map(d => {
+      const { m } = gtfsTimeTo24(d.time);
+      const typeGuess = /^\d+$/.test(d.route) && +d.route <= 99 ? 'tram' : 'bus';
+      return `<div class="srow" style="margin-bottom:4px;">
+        <span class="stime" style="font-size:13px;">${h}:${m}</span>
+        <span class="sroute-badge ${typeGuess}">${esc(d.route)}</span>
+        <span class="sdest">${esc(d.headsign || '—')}</span>
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML = html;
+}
+
+function setStatus(s, txt) {
+  document.getElementById('sdot').className  = 'sdot ' + s;
+  document.getElementById('stxt').textContent = txt;
+}
+
+function updateCounts() {
+  document.getElementById('ct').textContent = vehicles.filter(v => v.type === 'tram').length;
+  document.getElementById('cb').textContent = vehicles.filter(v => v.type === 'bus').length;
+  document.getElementById('ca').textContent = alerts.length;
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+window.addEventListener('load', () => {
+  initMap();
+  loadAll();
+  setInterval(loadAll, 60000);
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#stopInput') && !e.target.closest('#stopDropdown')) {
+      document.getElementById('stopDropdown').style.display = 'none';
+    }
+  });
+});
+</script>
+</body>
+</html>
