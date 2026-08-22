@@ -1,4 +1,4 @@
-# KRK Transit — QNAP TS-230 Deployment
+# KRK Transit — Server Deployment
 
 ## Files needed on the QNAP
 
@@ -18,17 +18,17 @@ The GTFS ZIPs are baked into the image at build time — container starts instan
 
 ## Step-by-step deployment
 
-### 1. Copy files to QNAP via SCP (from your PC)
+### 1. Copy files to Server via SCP (from your PC)
 
 ```bash
-scp Dockerfile proxy.py krakow-tracker.html admin@QNAP-IP:/share/Container/krktracker/
-scp -r gtfs_cache/ admin@QNAP-IP:/share/Container/krktracker/
+scp Dockerfile proxy.py krakow-tracker.html admin@Server-IP:/share/Container/krktracker/
+scp -r gtfs_cache/ admin@Server-IP:/share/Container/krktracker/
 ```
 
-### 2. SSH into the QNAP
+### 2. SSH into the Server
 
 ```bash
-ssh admin@QNAP-IP
+ssh admin@QServer-IP
 ```
 
 ### 3. Build and run
@@ -48,7 +48,7 @@ sudo docker run -d \
 ### 4. Open the tracker
 
 ```
-http://QNAP-IP:6070
+http://Server-IP:6070
 ```
 
 ---
