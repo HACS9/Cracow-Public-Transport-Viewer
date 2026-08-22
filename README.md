@@ -1,6 +1,6 @@
 # KRK Transit — Server Deployment
 
-## Files needed on the QNAP
+## Files needed on the Server
 
 ```
 /share/Container/krktracker/
