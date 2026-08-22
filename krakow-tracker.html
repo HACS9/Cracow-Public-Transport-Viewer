@@ -42,7 +42,26 @@ header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(
 .rbtn.spin .si{animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .si{display:inline-block;}
-.ts-lbl{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap;}
+/* ── ROUTE SEARCH (header) ── */
+.route-search{display:flex;align-items:center;gap:6px;flex:1;max-width:480px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:4px 8px;transition:border-color .2s;}
+.route-search:focus-within{border-color:var(--accent);}
+.rs-field{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
+.rs-lbl{font-size:10px;font-weight:700;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0;}
+.rs-field input{flex:1;background:transparent;border:none;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;outline:none;min-width:0;}
+.rs-field input::placeholder{color:var(--text3);}
+.rs-sep{font-size:14px;color:var(--text3);cursor:pointer;padding:2px 4px;border-radius:4px;flex-shrink:0;transition:color .15s;}
+.rs-sep:hover{color:var(--accent);}
+.rs-add{background:transparent;border:1px solid var(--border2);border-radius:999px;color:var(--text3);font-family:'Syne',sans-serif;font-size:11px;font-weight:600;padding:3px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;}
+.rs-add:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── ROUTE RESULTS ── */
+.rcard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:6px;display:flex;align-items:center;gap:9px;}
+.rcard-times{display:flex;flex-direction:column;gap:2px;flex-shrink:0;min-width:80px;}
+.rcard-dep{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--accent);}
+.rcard-arr{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);}
+.rcard-info{flex:1;min-width:0;}
+.rcard-route{font-size:13px;font-weight:600;margin-bottom:2px;}
+.rcard-dest{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* ── LAYOUT ── */
 .main{display:flex;flex:1;overflow:hidden;}
@@ -133,21 +152,40 @@ header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(
 .empty .big{font-size:28px;margin-bottom:8px;}
 
 /* ── MAP MARKERS ── */
+.mkr-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  cursor:pointer;position:relative;
+}
+.mkr-wrap:hover .mkr{transform:scale(1.15);}
+.mkr-wrap.sel .mkr{box-shadow:0 0 0 3px var(--accent),0 2px 8px rgba(0,0,0,.55);}
 .mkr{
   display:flex;align-items:center;justify-content:center;
   border-radius:5px;font-weight:700;font-family:'Syne',sans-serif;
   border:2px solid rgba(255,255,255,.3);
-  cursor:pointer;
   box-shadow:0 2px 8px rgba(0,0,0,.55);
   transition:transform .1s;
   line-height:1;
   white-space:nowrap;
   padding:0 4px;
+  position:relative;
+  z-index:1;
 }
-.mkr:hover{transform:scale(1.15);}
 .mkr.tram{background:var(--tram);color:#fff;}
 .mkr.bus{background:var(--bus);color:#fff;}
-.mkr.sel{box-shadow:0 0 0 3px var(--accent),0 2px 8px rgba(0,0,0,.55);}
+/* arrow sits above the badge, rotated to bearing */
+.mkr-arrow{
+  width:0;height:0;
+  border-left:4px solid transparent;
+  border-right:4px solid transparent;
+  border-bottom:7px solid rgba(255,255,255,0.85);
+  position:absolute;
+  top:-9px;
+  left:50%;
+  transform-origin:50% calc(100% + 13px); /* pivot at centre of badge */
+  margin-left:-4px;
+  pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+}
 
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
@@ -157,15 +195,21 @@ header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(
 
 <header>
   <div class="logo">Krakowski<span>&nbsp;CPTV</span></div>
-  <div class="sbox">
-    <input type="text" id="searchInput" placeholder="Szukaj linii lub kierunku…" oninput="onSearch()">
-    <span class="sicon">⌕</span>
+
+  <!-- FROM / TO unified search -->
+  <div class="route-search">
+    <div class="rs-field">
+      <span class="rs-lbl">Z</span>
+      <input type="text" id="fromInput" placeholder="Przystanek startowy…" oninput="onFromInput()" autocomplete="off">
+    </div>
+    <div class="rs-sep" id="rsSep" onclick="swapStops()" title="Zamień">⇄</div>
+    <div class="rs-field" id="toFieldWrap" style="display:none;">
+      <span class="rs-lbl">Do</span>
+      <input type="text" id="toInput" placeholder="Przystanek docelowy…" oninput="onToInput()" autocomplete="off">
+    </div>
+    <button class="rs-add" id="rsAddTo" onclick="showToField()" title="Dodaj cel podróży">+&nbsp;Dokąd?</button>
   </div>
-  <div class="sbox" style="position:relative;">
-    <input type="text" id="stopInput" placeholder="Szukaj przystanku…" oninput="onStopSearch()" autocomplete="off">
-    <span class="sicon">⛉</span>
-    
-  </div>
+
   <div class="filters">
     <button class="fbtn fa" id="fa" onclick="setFilter('all')">Wszystkie</button>
     <button class="fbtn" id="ft" onclick="setFilter('tram')"><span class="dot dt"></span>Tramwaje</button>
@@ -174,36 +218,41 @@ header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(
   <button class="rbtn" id="rbtn" onclick="loadAll()"><span class="si">↻</span> Odśwież</button>
   <span class="ts-lbl" id="tsLbl">—</span>
 </header>
-<div id="stopDropdown" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);z-index:9999;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.5);min-width:200px;"></div>
+<div id="stopDropdown" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);z-index:9999;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.5);min-width:220px;"></div>
 
 <div class="main">
   <div class="sidebar">
     <div class="stabs">
       <div class="stab on" id="tab-v" onclick="switchTab('v')">Pojazdy</div>
+      <div class="stab" id="tab-c" onclick="switchTab('c')">Połączenie</div>
       <div class="stab" id="tab-a" onclick="switchTab('a')">Alerty</div>
-      <div class="stab" id="tab-s" onclick="switchTab('s')">Rozkład</div>
-      <div class="stab" id="tab-p" onclick="switchTab('p')">Przystanek</div>
       <div class="stab" id="tab-d" onclick="switchTab('d')">Debug</div>
     </div>
 
     <div class="spanel on" id="panel-v">
+      <input type="text" id="searchInput" placeholder="Filtruj linie lub kierunek…" oninput="onSearch()"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:7px 12px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;outline:none;margin-bottom:8px;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
       <div id="vlist"><div class="empty"><div class="big">⏳</div>Ładowanie…</div></div>
+    </div>
+
+    <div class="spanel" id="panel-c">
+      <div id="connHeader" style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">Wpisz przystanek startowy powyżej</div>
+      <div id="stopToggle" style="display:none;margin-bottom:8px;gap:4px;">
+        <button id="btnUpcoming" onclick="setStopMode('upcoming')"
+          style="flex:1;padding:5px 8px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#0f0f0f;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+          Najbliższe
+        </button>
+        <button id="btnFull" onclick="setStopMode('full')"
+          style="flex:1;padding:5px 8px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:'Syne',sans-serif;font-size:11px;font-weight:600;cursor:pointer;">
+          Pełny rozkład
+        </button>
+      </div>
+      <div id="stopDepartures"><div class="empty"><div class="big">🚏</div>Wybierz przystanek</div></div>
     </div>
 
     <div class="spanel" id="panel-a">
       <div id="alist"><div class="empty"><div class="big">📡</div>Ładowanie…</div></div>
-    </div>
-
-    <div class="spanel" id="panel-s">
-      <input type="text" id="schedSearch" placeholder="Filtruj po linii lub kierunku…"
-        oninput="renderSchedule()"
-        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:7px 12px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;outline:none;margin-bottom:8px;">
-      <div id="slist"><div class="empty"><div class="big">🗓</div>Ładowanie…</div></div>
-    </div>
-
-    <div class="spanel" id="panel-p">
-      <div id="stopHeader" style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">Wyszukaj przystanek powyżej</div>
-      <div id="stopDepartures"><div class="empty"><div class="big">🚏</div>Wybierz przystanek</div></div>
     </div>
 
     <div class="spanel" id="panel-d">
@@ -260,6 +309,8 @@ let tripUpdates = {};   // tripId → {delay}
 let activeFilter = 'all';
 let selId        = null; // selected vehicleId
 let leafletMarkers = {}; // vehicleId → L.Marker
+let stopDepsAll  = [];   // last loaded stop departures (full list)
+let stopDepsMode = 'upcoming'; // 'upcoming' | 'full'
 
 // ════════════════════════════════════════════
 // LOGGING
@@ -332,7 +383,6 @@ function renderAll() {
   renderMap();
   renderList();
   renderAlerts();
-  renderSchedule();
   updateCounts();
   document.getElementById('tsLbl').textContent = new Date().toLocaleTimeString('pl-PL');
   document.getElementById('rbtn').classList.remove('spin');
@@ -416,17 +466,28 @@ function renderMap() {
 
   const vv = getFiltered();
   for (const v of vv) {
-    // Dynamic marker size based on route number length
-    const label   = v.routeId || '?';
-    const w       = Math.max(28, label.length * 9 + 12);
-    const h       = 26;
-    const isSel   = selId === v.vehicleId;
+    const label  = v.routeId || '?';
+    const w      = Math.max(28, label.length * 9 + 12);
+    const h      = 26;
+    const isSel  = selId === v.vehicleId;
+
+    // Arrow: rotate by bearing (0=north=up). Only show if bearing available.
+    const arrowHtml = v.bearing != null
+      ? `<div class="mkr-arrow" style="transform:rotate(${v.bearing}deg);"></div>`
+      : '';
+
+    // Wrapper is taller when arrow is present
+    const wrapH  = v.bearing != null ? h + 10 : h;
+    const anchor = v.bearing != null ? [w / 2, wrapH / 2 + 5] : [w / 2, h / 2];
 
     const icon = L.divIcon({
       className: '',
-      html: `<div class="mkr ${v.type}${isSel ? ' sel' : ''}" style="width:${w}px;height:${h}px;font-size:${label.length > 3 ? 10 : 12}px;">${label}</div>`,
-      iconSize:   [w, h],
-      iconAnchor: [w / 2, h / 2],
+      html: `<div class="mkr-wrap${isSel ? ' sel' : ''}" style="width:${w}px;height:${wrapH}px;justify-content:flex-end;">
+               ${arrowHtml}
+               <div class="mkr ${v.type}" style="width:${w}px;height:${h}px;font-size:${label.length > 3 ? 10 : 12}px;">${label}</div>
+             </div>`,
+      iconSize:   [w, wrapH],
+      iconAnchor: anchor,
     });
 
     const marker = L.marker([v.lat, v.lng], { icon })
@@ -441,11 +502,18 @@ function renderMap() {
 // VEHICLE LIST
 // ════════════════════════════════════════════
 function renderList() {
-  const q  = (document.getElementById('searchInput').value || '').toLowerCase();
+  const q   = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const isNum = q !== '' && /^\d+$/.test(q);
   const vv = getFiltered()
-    .filter(v => !q
-      || (v.routeId  || '').toLowerCase().includes(q)
-      || (v.headsign || '').toLowerCase().includes(q))
+    .filter(v => {
+      if (!q) return true;
+      const route = (v.routeId  || '').toLowerCase();
+      const dest  = (v.headsign || '').toLowerCase();
+      // Pure numeric query → exact route match OR headsign contains
+      if (isNum) return route === q || dest.includes(q);
+      // Text query → contains on both
+      return route.includes(q) || dest.includes(q);
+    })
     .sort((a, b) => (b.delay || 0) - (a.delay || 0));
 
   const el = document.getElementById('vlist');
@@ -478,6 +546,25 @@ function clickVehicle(el) {
   if (v) selectVehicle(v);
 }
 
+function setStopMode(mode) {
+  stopDepsMode = mode;
+  updateStopToggleBtns();
+  renderStopDepartures(stopDepsAll);
+}
+
+function updateStopToggleBtns() {
+  const isUpcoming = stopDepsMode === 'upcoming';
+  const bU = document.getElementById('btnUpcoming');
+  const bF = document.getElementById('btnFull');
+  if (!bU || !bF) return;
+  bU.style.background  = isUpcoming ? 'var(--accent)' : 'transparent';
+  bU.style.borderColor = isUpcoming ? 'var(--accent)' : 'var(--border2)';
+  bU.style.color       = isUpcoming ? '#0f0f0f'       : 'var(--text2)';
+  bF.style.background  = !isUpcoming ? 'var(--accent)' : 'transparent';
+  bF.style.borderColor = !isUpcoming ? 'var(--accent)' : 'var(--border2)';
+  bF.style.color       = !isUpcoming ? '#0f0f0f'       : 'var(--text2)';
+}
+
 // ════════════════════════════════════════════
 // ALERTS
 // ════════════════════════════════════════════
@@ -493,57 +580,6 @@ function renderAlerts() {
       <div class="altext"><b>${esc(a.header || '')}</b>${a.desc ? '<br>' + esc(a.desc) : ''}</div>
     </div>`).join('');
   document.getElementById('ca').textContent = alerts.length;
-}
-
-// ════════════════════════════════════════════
-// SCHEDULE
-// ════════════════════════════════════════════
-function renderSchedule() {
-  const q   = (document.getElementById('schedSearch').value || '').toLowerCase();
-  const now = new Date();
-  const el  = document.getElementById('slist');
-
-  const deps = getFiltered()
-    .filter(v => !q
-      || (v.routeId  || '').toLowerCase().includes(q)
-      || (v.headsign || '').toLowerCase().includes(q))
-    .slice(0, 30)
-    .map(v => {
-      const eta = new Date(now.getTime() + (Math.random() * 20 + 3) * 60000 + (v.delay || 0) * 1000);
-      return { time: eta, v };
-    })
-    .sort((a, b) => a.time - b.time);
-
-  if (!deps.length) {
-    el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak kursów</div>';
-    return;
-  }
-
-  el.innerHTML = deps.map(({ time, v }) => {
-    const ts = time.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-    const { ds, dc } = delayInfo(v.delay);
-    return `<div class="srow${selId === v.vehicleId ? ' sel' : ''}" data-vid="${esc(v.vehicleId)}" onclick="clickScheduleRow(this)">
-      <span class="stime">${ts}</span>
-      <span class="sroute-badge ${v.type}">${esc(v.routeId || '?')}</span>
-      <span class="sdest">${esc(v.headsign || '—')}</span>
-      ${dc ? `<span class="dp ${dc}">${ds}</span>` : ''}
-      <span class="sloc" onclick="event.stopPropagation();locateVehicle('${esc(v.vehicleId)}')">⌖ mapuj</span>
-    </div>`;
-  }).join('');
-}
-
-function clickScheduleRow(el) {
-  const vid = el.dataset.vid;
-  const v   = vehicles.find(x => x.vehicleId === vid);
-  if (v) selectVehicle(v);
-}
-
-function locateVehicle(vid) {
-  const v = vehicles.find(x => x.vehicleId === vid);
-  if (!v) return;
-  map.setView([v.lat, v.lng], 16, { animate: true });
-  selectVehicle(v);
-  // Switch to map view if sidebar hides it on small screens — no-op on desktop
 }
 
 // ════════════════════════════════════════════
@@ -567,9 +603,8 @@ function selectVehicle(v) {
 
   // Re-render markers to update selection ring
   renderMap();
-  // Re-render list/schedule to update highlight
+  // Re-render list to update highlight
   renderList();
-  renderSchedule();
 }
 
 function closeDetail() {
@@ -577,7 +612,6 @@ function closeDetail() {
   document.getElementById('vdetail').classList.remove('on');
   renderMap();
   renderList();
-  renderSchedule();
 }
 
 // ════════════════════════════════════════════
@@ -603,7 +637,6 @@ function esc(s) {
 
 function onSearch() {
   renderList();
-  renderSchedule();
 }
 
 function setFilter(f) {
@@ -611,52 +644,76 @@ function setFilter(f) {
   document.getElementById('fa').className = 'fbtn' + (f === 'all'  ? ' fa' : '');
   document.getElementById('ft').className = 'fbtn' + (f === 'tram' ? ' ft' : '');
   document.getElementById('fb').className = 'fbtn' + (f === 'bus'  ? ' fb' : '');
-  renderMap(); renderList(); renderSchedule();
+  renderMap(); renderList();
 }
 
 function switchTab(t) {
-  ['v','a','s','p','d'].forEach(x => {
+  ['v','c','a','d'].forEach(x => {
     document.getElementById('tab-'   + x).classList.toggle('on', x === t);
     document.getElementById('panel-' + x).classList.toggle('on', x === t);
   });
 }
 
 // ════════════════════════════════════════════
-// STOP SEARCH
+// UNIFIED FROM / TO SEARCH
 // ════════════════════════════════════════════
+let fromName     = '';   // confirmed stop name (FROM)
+let toName       = '';   // confirmed stop name (TO)
+let activeDropField = null; // 'from' | 'to'
 let stopSearchTimer = null;
 
-function onStopSearch() {
-  const q = document.getElementById('stopInput').value.trim();
-  clearTimeout(stopSearchTimer);
-  if (q.length < 2) {
-    document.getElementById('stopDropdown').style.display = 'none';
-    return;
-  }
-  stopSearchTimer = setTimeout(() => fetchStops(q), 250);
+function showToField() {
+  document.getElementById('toFieldWrap').style.display = 'flex';
+  document.getElementById('rsAddTo').style.display     = 'none';
+  document.getElementById('toInput').focus();
 }
 
-async function fetchStops(q) {
+function swapStops() {
+  const fi = document.getElementById('fromInput');
+  const ti = document.getElementById('toInput');
+  const tmp = fi.value; fi.value = ti.value; ti.value = tmp;
+  const tmpN = fromName; fromName = toName; toName = tmpN;
+  triggerSearch();
+}
+
+function onFromInput() {
+  fromName = '';
+  const q = document.getElementById('fromInput').value.trim();
+  clearTimeout(stopSearchTimer);
+  if (q.length < 2) { hideDropdown(); return; }
+  activeDropField = 'from';
+  stopSearchTimer = setTimeout(() => fetchStopSuggestions(q, 'from'), 220);
+}
+
+function onToInput() {
+  toName = '';
+  const q = document.getElementById('toInput').value.trim();
+  clearTimeout(stopSearchTimer);
+  if (q.length < 2) { hideDropdown(); return; }
+  activeDropField = 'to';
+  stopSearchTimer = setTimeout(() => fetchStopSuggestions(q, 'to'), 220);
+}
+
+async function fetchStopSuggestions(q, field) {
   try {
-    const r = await fetch(`/stops?q=${encodeURIComponent(q)}`);
+    const r     = await fetch(`/stops?q=${encodeURIComponent(q)}`);
     const stops = await r.json();
-    renderStopDropdown(stops);
+    renderStopDropdown(stops, field);
   } catch(e) {
     log('Błąd /stops: ' + e.message, 'lerr');
   }
 }
 
-function renderStopDropdown(stops) {
+function renderStopDropdown(stops, field) {
   const dd = document.getElementById('stopDropdown');
   if (!stops.length) { dd.style.display = 'none'; return; }
-  // Pozycjonuj dropdown pod inputem
-  const inp = document.getElementById('stopInput');
+  const inp  = document.getElementById(field === 'from' ? 'fromInput' : 'toInput');
   const rect = inp.getBoundingClientRect();
-  dd.style.top    = (rect.bottom + 3) + 'px';
-  dd.style.left   = rect.left + 'px';
-  dd.style.width  = rect.width + 'px';
-  dd.innerHTML = stops.map(s => `
-    <div onclick="selectStop('${esc(s.stop_id)}','${esc(s.name)}')"
+  dd.style.top   = (rect.bottom + 3) + 'px';
+  dd.style.left  = rect.left + 'px';
+  dd.style.width = Math.max(rect.width, 220) + 'px';
+  dd.innerHTML   = stops.map(s => `
+    <div onclick="selectStop('${esc(s.name)}','${field}')"
       style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .1s;"
       onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
       ${esc(s.name)}
@@ -664,20 +721,94 @@ function renderStopDropdown(stops) {
   dd.style.display = 'block';
 }
 
-async function selectStop(stopId, stopName) {
-  document.getElementById('stopInput').value = stopName;
+function hideDropdown() {
   document.getElementById('stopDropdown').style.display = 'none';
-  document.getElementById('stopHeader').textContent = stopName;
-  document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">⏳</div>Ładowanie rozkładu…</div>';
-  switchTab('p');
+}
+
+function selectStop(name, field) {
+  hideDropdown();
+  if (field === 'from') {
+    fromName = name;
+    document.getElementById('fromInput').value = name;
+  } else {
+    toName = name;
+    document.getElementById('toInput').value = name;
+  }
+  triggerSearch();
+}
+
+function triggerSearch() {
+  if (!fromName) return;
+  switchTab('c');
+  if (toName) {
+    loadRoute(fromName, toName);
+  } else {
+    loadStopDepartures(fromName);
+  }
+}
+
+// ── Single stop departures ──
+async function loadStopDepartures(name) {
+  document.getElementById('connHeader').textContent = name;
+  document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">⏳</div>Ładowanie…</div>';
+  document.getElementById('stopToggle').style.display = 'none';
   try {
-    const r    = await fetch(`/stop_times?stop_id=${encodeURIComponent(stopId)}`);
+    const r    = await fetch(`/stop_times?name=${encodeURIComponent(name)}`);
     const data = await r.json();
-    renderStopDepartures(data.departures || []);
+    stopDepsAll  = data.departures || [];
+    stopDepsMode = 'upcoming';
+    document.getElementById('stopToggle').style.display = 'flex';
+    updateStopToggleBtns();
+    renderStopDepartures(stopDepsAll);
   } catch(e) {
     document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">✗</div>Błąd pobierania rozkładu</div>';
     log('Błąd /stop_times: ' + e.message, 'lerr');
   }
+}
+
+// ── Route search ──
+async function loadRoute(from, to) {
+  document.getElementById('connHeader').textContent = `${from} → ${to}`;
+  document.getElementById('stopToggle').style.display = 'none';
+  document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">⏳</div>Szukam połączeń…</div>';
+  try {
+    const r    = await fetch(`/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const data = await r.json();
+    renderRouteResults(data.results || [], data.error);
+  } catch(e) {
+    document.getElementById('stopDepartures').innerHTML = '<div class="empty"><div class="big">✗</div>Błąd wyszukiwania</div>';
+    log('Błąd /route: ' + e.message, 'lerr');
+  }
+}
+
+function renderRouteResults(results, errMsg) {
+  const el = document.getElementById('stopDepartures');
+  if (errMsg) {
+    el.innerHTML = `<div class="empty"><div class="big">🔍</div>${esc(errMsg)}</div>`;
+    return;
+  }
+  if (!results.length) {
+    el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak bezpośrednich połączeń w ciągu najbliższych 90 minut</div>';
+    return;
+  }
+  el.innerHTML = results.map(r => {
+    const typeGuess = /^\d+$/.test(r.route) && +r.route <= 99 ? 'tram' : 'bus';
+    const depH = r.dep_time.slice(0,2), depM = r.dep_time.slice(3,5);
+    const arrH = r.arr_time.slice(0,2), arrM = r.arr_time.slice(3,5);
+    // normalise >23h display
+    const dH = String(parseInt(depH,10) % 24).padStart(2,'0');
+    const aH = String(parseInt(arrH,10) % 24).padStart(2,'0');
+    return `<div class="rcard">
+      <div class="rcard-times">
+        <span class="rcard-dep">${dH}:${depM}</span>
+        <span class="rcard-arr">→ ${aH}:${arrM}</span>
+      </div>
+      <div class="rcard-info">
+        <div class="rcard-route"><span class="sroute-badge ${typeGuess}" style="display:inline-flex;margin-right:6px;">${esc(r.route)}</span></div>
+        <div class="rcard-dest">${esc(r.headsign || '—')}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // Przelicz godzinę GTFS (może być >23, np. "25:30") na normalny zegar
@@ -694,33 +825,80 @@ function renderStopDepartures(deps) {
     el.innerHTML = '<div class="empty"><div class="big">🔍</div>Brak odjazdów dziś</div>';
     return;
   }
-  // Grupuj po godzinie (po przeliczeniu)
+
+  const now     = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  // Helper: convert GTFS time string to minutes-since-midnight (may be >1440 for post-midnight)
+  function gtfsToMins(time) {
+    const parts = time.split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
+  }
+
+  // Filter for upcoming mode: departures within next 60 minutes
+  let displayDeps = deps;
+  if (stopDepsMode === 'upcoming') {
+    const cutoff = nowMins + 60;
+    displayDeps = deps.filter(d => {
+      const m = gtfsToMins(d.time);
+      // handle post-midnight services (>= 1440): they run after midnight so treat as after now
+      if (m >= 1440) return true;
+      return m >= nowMins && m <= cutoff;
+    });
+    if (!displayDeps.length) {
+      el.innerHTML = '<div class="empty"><div class="big">🕐</div>Brak odjazdów w ciągu najbliższej godziny</div>';
+      return;
+    }
+  }
+
+  // Group by display hour
   const byHour = {};
-  for (const d of deps) {
+  for (const d of displayDeps) {
     const { h } = gtfsTimeTo24(d.time);
     if (!byHour[h]) byHour[h] = [];
     byHour[h].push(d);
   }
-  // Sortuj godziny: najpierw 4-23, potem 0-3 (nocne)
+
+  // Sort hours: 4-23 first, then 0-3 (night)
   const hours = Object.keys(byHour).sort((a, b) => {
     const na = +a < 4 ? +a + 24 : +a;
     const nb = +b < 4 ? +b + 24 : +b;
     return na - nb;
   });
+
+  const currentH = String(now.getHours()).padStart(2, '0');
+  let scrollTargetId = null;
+
   let html = '';
   for (const h of hours) {
-    html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin:10px 0 4px;">${h}:xx</div>`;
+    const headerId = `stop-hour-${h}`;
+    // Mark this as scroll target if it matches current hour (or first future hour)
+    if (!scrollTargetId && (h === currentH || +h >= now.getHours())) {
+      scrollTargetId = headerId;
+    }
+    html += `<div id="${headerId}" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin:10px 0 4px;scroll-margin-top:4px;">${h}:xx</div>`;
     html += byHour[h].map(d => {
-      const { m } = gtfsTimeTo24(d.time);
-      const typeGuess = /^\d+$/.test(d.route) && +d.route <= 99 ? 'tram' : 'bus';
-      return `<div class="srow" style="margin-bottom:4px;">
+      const { m }      = gtfsTimeTo24(d.time);
+      const dMins      = gtfsToMins(d.time);
+      const isPast     = dMins < 1440 && dMins < nowMins;
+      const typeGuess  = /^\d+$/.test(d.route) && +d.route <= 99 ? 'tram' : 'bus';
+      return `<div class="srow" style="margin-bottom:4px;${isPast ? 'opacity:0.35;' : ''}">
         <span class="stime" style="font-size:13px;">${h}:${m}</span>
         <span class="sroute-badge ${typeGuess}">${esc(d.route)}</span>
         <span class="sdest">${esc(d.headsign || '—')}</span>
       </div>`;
     }).join('');
   }
+
   el.innerHTML = html;
+
+  // Auto-scroll to current hour block (only in full mode)
+  if (stopDepsMode === 'full' && scrollTargetId) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(scrollTargetId);
+      if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }
 }
 
 function setStatus(s, txt) {
@@ -742,8 +920,10 @@ window.addEventListener('load', () => {
   loadAll();
   setInterval(loadAll, 60000);
   document.addEventListener('click', e => {
-    if (!e.target.closest('#stopInput') && !e.target.closest('#stopDropdown')) {
-      document.getElementById('stopDropdown').style.display = 'none';
+    if (!e.target.closest('#fromInput') &&
+        !e.target.closest('#toInput') &&
+        !e.target.closest('#stopDropdown')) {
+      hideDropdown();
     }
   });
 });
